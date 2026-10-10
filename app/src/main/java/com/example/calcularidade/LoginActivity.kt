@@ -1,54 +1,28 @@
 package com.example.calcularidade
 
-import android.content.Context
-import android.hardware.biometrics.BiometricPrompt
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.provider.Settings
-import androidx.biometric.BiometricManager
-
-/*
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
-import com.example.biometricauthentication.ui.theme.BiometricAuthenticationTheme
-*/
 
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var etUsuario1 : EditText
-    private lateinit var etSenha1 : EditText
-    private lateinit var btAcessar1 : Button
-    private lateinit var btSairLogin1 : Button
+    private lateinit var etUsuario1: EditText
+    private lateinit var etSenha1: EditText
+    private lateinit var btAcessar1: Button
+    private lateinit var btSairLogin1: Button
+    private lateinit var btBiometria1: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,12 +33,36 @@ class LoginActivity : AppCompatActivity() {
         etSenha1 = findViewById(R.id.etSenha)
         btAcessar1 = findViewById(R.id.btAcessar)
         btSairLogin1 = findViewById(R.id.btSairLogin)
+        btBiometria1 = findViewById(R.id.btBiometria)
+
+        val telaMenu = Intent(this, MenuActivity::class.java)
+
+        btBiometria1.setOnClickListener {
+            if (isBiometricAvailable()) {
+                showBiometricPrompt(
+                    onSuccess = {
+                        startActivity(telaMenu)
+                    },
+                    onFailure = {
+                        Toast.makeText(this, "Autenticação biométrica falhou.", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            } else {
+                // Se a biometria não estiver cadastrada/disponível, redireciona para a tela de configurações ou permite login direto
+                promptEnrollBiometric()
+            }
+        }
 
         btAcessar1.setOnClickListener{
-            var telaIdade : Intent
-            telaIdade = Intent(this, MainActivity :: class.java)
-            startActivity(telaIdade)
+            if (etUsuario1.text.toString() == "Marcelo" && etSenha1.text.toString() == "123" ){
+                startActivity(telaMenu)
+            }
+            else{
+                Toast.makeText(this, "Usuário e/ou senha inválido(s).", Toast.LENGTH_SHORT).show()
+            }
+
         }
+
 
         btSairLogin1.setOnClickListener {
             finishAndRemoveTask()
@@ -76,137 +74,80 @@ class LoginActivity : AppCompatActivity() {
             insets
         }
     }
-}
 
-fun isBiometricAvailable(context: Context): Boolean {
-    val biometricManager = BiometricManager.from(context)
-    return when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)) {
-        BiometricManager.BIOMETRIC_SUCCESS -> true
-        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-            Log.d("BiometricAuth", "No biometric hardware available.")
-            false
+    private fun isBiometricAvailable(): Boolean {
+        val biometricManager = BiometricManager.from(this)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+        return when (biometricManager.canAuthenticate(authenticators)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> true
+            BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+                Log.d("BiometricAuth", "Nenhum hardware biométrico disponível.")
+                false
+            }
+            BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+                Log.d("BiometricAuth", "Hardware biométrico indisponível.")
+                false
+            }
+            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                Log.d("BiometricAuth", "Nenhuma biometria cadastrada.")
+                false
+            }
+            else -> false
         }
-
-        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-            Log.d("BiometricAuth", "Biometric hardware unavailable.")
-            false
-        }
-
-        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-            Log.d("BiometricAuth", "No biometrics enrolled.")
-            false
-        }
-
-        else -> false
     }
-}
-/*
-@Composable
-fun BiometricAuthenticationDemo(modifier: Modifier) {
-    val context = LocalContext.current
-    val activity = context as? FragmentActivity // Safe cast to FragmentActivity
 
+    private fun promptEnrollBiometric() {
+        try {
+            val enrollIntent = Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                putExtra(
+                    Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+                )
+            }
+            startActivity(enrollIntent)
+        } catch (e: ActivityNotFoundException) {
+            val fallbackIntent = Intent(Settings.ACTION_SECURITY_SETTINGS)
+            startActivity(fallbackIntent)
+        }
+    }
 
-    var authenticationResult by remember { mutableStateOf("Not Authenticated") }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    private fun showBiometricPrompt(
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit
     ) {
-        Text(
-            text = "Biometric Authentication",
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        val executor = ContextCompat.getMainExecutor(this)
 
-        Button(onClick = {
-            if (activity != null) {
-                if (isBiometricAvailable(context)) {
-                    promptEnrollBiometric(context)
-                    /*showBiometricPrompt(
-                        activity = activity,
-                        onSuccess = { authenticationResult = "Authentication Succeeded!" },
-                        onFailure = { authenticationResult = "Authentication Failed!" }
-                    )*/
-                } else {
-                    promptEnrollBiometric(context)
-                    authenticationResult = "Biometric not available or not configured."
+        val biometricPrompt = BiometricPrompt(
+            this,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Log.d("BiometricAuth", "Erro biométrico ($errorCode): $errString")
+                    onFailure()
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    Log.d("BiometricAuth", "Autenticação biométrica realizada com sucesso!")
+                    onSuccess()
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    Log.d("BiometricAuth", "Falha na autenticação biométrica.")
+                    onFailure()
                 }
             }
-        }) {
-            Text(text = "Authenticate")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = authenticationResult,
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
         )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Autenticação Biométrica")
+            .setSubtitle("Acesse o aplicativo usando sua biometria")
+            .setNegativeButtonText("Cancelar")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK)
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
     }
 }
-/*
-/**
- * Prompt the user to enroll biometric credentials.
- */
-fun promptEnrollBiometric(context: Context) {
-    try {
-        val enrollIntent = Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
-            putExtra(
-                Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
-                BiometricManager.Authenticators.BIOMETRIC_STRONG
-            )
-        }
-        if (context is FragmentActivity) {
-            context.startActivity(enrollIntent)
-        }
-    } catch (e: ActivityNotFoundException) {
-        // Fallback to a more generic settings screen
-        val fallbackIntent = Intent(Settings.ACTION_SECURITY_SETTINGS)
-        if (context is FragmentActivity) {
-            context.startActivity(fallbackIntent)
-        }
-    }
-}
-
-fun showBiometricPrompt(
-    activity: FragmentActivity,
-    onSuccess: () -> Unit,
-    onFailure: () -> Unit
-) {
-    val executor = ContextCompat.getMainExecutor(activity)
-
-    val biometricPrompt =
-        BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                super.onAuthenticationError(errorCode, errString)
-                Log.d("BiometricAuth", "Error: $errString")
-                onFailure()
-            }
-
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                super.onAuthenticationSucceeded(result)
-                Log.d("BiometricAuth", "Authentication succeeded!")
-                onSuccess()
-            }
-
-            override fun onAuthenticationFailed() {
-                super.onAuthenticationFailed()
-                Log.d("BiometricAuth", "Authentication failed.")
-                onFailure()
-            }
-        })
-
-    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Biometric Authentication")
-        .setSubtitle("Log in using your biometric credentials")
-        .setNegativeButtonText("Cancel")
-        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-        .build()
-
-    biometricPrompt.authenticate(promptInfo)
-}*/
