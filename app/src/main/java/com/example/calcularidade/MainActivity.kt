@@ -1,5 +1,6 @@
 package com.example.calcularidade
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -97,6 +98,20 @@ class MainActivity : AppCompatActivity() {
             tvMinutos1.text = minutos.toString()
             tvSegundos1.text = segundos.toString()
 
+        }
+
+        btLimpar1.setOnClickListener {
+            tvAnos1.text = ""
+            tvMeses1.text = ""
+            tvDias1.text = ""
+            tvHoras1.text = ""
+            tvMinutos1.text = ""
+            tvSegundos1.text = ""
+            etAnoAtual1.setText("")
+            etDtNasc1.setText("")
+        }
+        btSair1.setOnClickListener {
+            finish()
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
